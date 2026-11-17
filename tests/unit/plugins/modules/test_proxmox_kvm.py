@@ -216,8 +216,14 @@ def test_clone_forwards_description_to_proxmox(description, expected_kwargs):
         ("args", "skiplock", "clone", "description", "format", "full", "pool", "snapname", "storage", "target")
     )
     kvm.module.params.update(
-        {"api_host": "host", "api_user": "root@pam", "api_password": "password",
-         "clone": "source-vm", "description": description, "full": True}
+        {
+            "api_host": "host",
+            "api_user": "root@pam",
+            "api_password": "password",
+            "clone": "source-vm",
+            "description": description,
+            "full": True,
+        }
     )
     kvm.proxmox_api = MagicMock()
     kvm.version = MagicMock(return_value=proxmox_kvm.LooseVersion("9.0"))

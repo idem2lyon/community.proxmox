@@ -198,3 +198,45 @@ def test_wait_for_task_returns_true_when_the_task_succeeds(mock_sleep):
 
     assert kvm.wait_for_task("pve", "UPID:pve:1") is True
     kvm.module.fail_json.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    ("description", "expected_kwargs"),
+    [
+        ("VM cloned by Ansible", {"description": "VM cloned by Ansible"}),
+        ("", {"description": ""}),
+        (None, {}),
+    ],
+)
+def test_clone_forwards_description_to_proxmox(description, expected_kwargs):
+    """Clone descriptions must reach the Proxmox API, including an explicit empty value."""
+    kvm = proxmox_kvm.ProxmoxKvmAnsible.__new__(proxmox_kvm.ProxmoxKvmAnsible)
+    kvm.module = MagicMock()
+    kvm.module.params = dict.fromkeys(
+        ("args", "skiplock", "clone", "description", "format", "full", "pool", "snapname", "storage", "target")
+    )
+    kvm.module.params.update(
+        {"api_host": "host", "api_user": "root@pam", "api_password": "password",
+         "clone": "source-vm", "description": description, "full": True}
+    )
+    kvm.proxmox_api = MagicMock()
+    kvm.version = MagicMock(return_value=proxmox_kvm.LooseVersion("9.0"))
+    kvm.wait_for_task = MagicMock(return_value=True)
+
+    assert kvm.create_vm(
+        vmid=100,
+        newid=200,
+        node="pve",
+        name="clone-vm",
+        memory=1024,
+        cpu="host",
+        cores=1,
+        sockets=1,
+        update=False,
+        update_unsafe=False,
+        description=description,
+    )
+
+    clone = kvm.proxmox_api.nodes.return_value.qemu.return_value.clone.post
+    clone.assert_called_once_with(newid=200, name="clone-vm", full=1, **expected_kwargs)
+    kvm.wait_for_task.assert_called_once_with("pve", clone.return_value)
